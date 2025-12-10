@@ -1,0 +1,30 @@
+{
+  "editor.formatOnSave": true,
+  "editor.mouseWheelZoom": true,
+  "editor.renderWhitespace": "all",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "explorer.autoReveal": false,
+  "files.eol": "\n",
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true
+  },
+  "go.formatFlags": [
+    "-local",
+    "github.com/MikeAlbertFleetSolutions"
+  ],
+  "go.formatTool": "goimports",
+  "go.lintTool": "golangci-lint",
+  "go.lintFlags": [
+    "--fast"
+  ],
+  "terraform.indexing": {
+    "enabled": false,
+    "liveIndexing": false,
+    "exclude": [
+      "**/*"
+    ]
+  },
+  "window.title": "${activeEditorLong}"
+}

@@ -1,0 +1,19 @@
+{
+  "name": "adp-driver-sync",
+  "dockerComposeFile": "docker-compose.yaml",
+  "service": "docker-in-docker",
+  "workspaceFolder": "/adp-driver-sync",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "mohsen1.prettify-json",
+        "ms-azuretools.vscode-docker",
+        "ms-vscode.go",
+        "ms-vsliveshare.vsliveshare",
+        "redhat.vscode-yaml",
+        "GitHub.copilot"
+      ]
+    }
+  }
+}

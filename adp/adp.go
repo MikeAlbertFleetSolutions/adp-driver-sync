@@ -2,6 +2,7 @@ package adp
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -36,9 +37,14 @@ type ADPWorkerResponse struct {
 	Workers []ADPWorker `json:"workers"`
 }
 
+// ADPWorkerID represents an ADP worker ID object
+type ADPWorkerID struct {
+	IDValue string `json:"idValue"`
+}
+
 // ADPWorker represents a worker from ADP Workforce Now
 type ADPWorker struct {
-	WorkerID        string              `json:"workerId"`
+	WorkerID        ADPWorkerID         `json:"workerId"`
 	Person          ADPPerson           `json:"person"`
 	WorkAssignments []ADPWorkAssignment `json:"workAssignments"`
 }
@@ -83,15 +89,31 @@ type Client struct {
 	oauth2Token  *OAuth2Token
 }
 
-// NewClient creates a new ADP API client with OAuth2
-func NewClient(clientID, clientSecret, baseURL string) (*Client, error) {
+// NewClient creates a new ADP API client with OAuth2 and client certificate
+func NewClient(clientID, clientSecret, baseURL, certFile, keyFile string) (*Client, error) {
+	// Load client certificate and private key
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load client certificate: %w", err)
+	}
+
+	// Configure TLS with client certificate
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+
+	transport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+
 	return &Client{
 		clientID:     clientID,
 		clientSecret: clientSecret,
-		tokenURL:     fmt.Sprintf("%s/oauth/v2/token", baseURL),
+		tokenURL:     fmt.Sprintf("%s/auth/oauth/v2/token", baseURL),
 		baseURL:      baseURL,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   30 * time.Second,
+			Transport: transport,
 		},
 	}, nil
 }
@@ -147,14 +169,7 @@ func (c *Client) GetWorkers(ctx context.Context) ([]ADPWorker, error) {
 	}
 
 	// ADP Workforce Now workers endpoint
-	workersURL := fmt.Sprintf("%s/hcm/v1/workers", c.baseURL)
-
-	// Add query parameters to include address information
-	params := url.Values{}
-	params.Add("address", "true")                            // Include address data
-	params.Add("$select", "workerId,person,workAssignments") // Select specific fields
-
-	fullURL := fmt.Sprintf("%s?%s", workersURL, params.Encode())
+	fullURL := fmt.Sprintf("%s/hr/v2/workers", c.baseURL)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
 	if err != nil {
@@ -170,13 +185,25 @@ func (c *Client) GetWorkers(ctx context.Context) ([]ADPWorker, error) {
 	}
 	defer resp.Body.Close()
 
+	// Read the full response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("workers request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
+	// Log the first part of the raw response for debugging
+	preview := string(body)
+	if len(preview) > 2000 {
+		preview = preview[:2000] + "..."
+	}
+	log.Printf("ADP Response (first 2000 chars): %s", preview)
+
 	var response ADPWorkerResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to decode workers response: %w", err)
 	}
 
@@ -196,12 +223,12 @@ func (c *Client) GetDriverHomeAddresses() ([]DriverHomeAddress, error) {
 	var driverHomeAddresses []DriverHomeAddress
 
 	for _, worker := range workers {
-		// Extract employee number from worker ID (you may need to adjust this based on ADP's data)
-		employeeNumber := extractEmployeeNumber(worker.WorkerID)
+		// Use the worker ID value directly as the employee number
+		employeeNumber := worker.WorkerID.IDValue
 
 		// Get the primary work assignment (first one)
 		if len(worker.WorkAssignments) == 0 {
-			log.Printf("Worker %s has no work assignments", worker.WorkerID)
+			log.Printf("Worker %s has no work assignments", worker.WorkerID.IDValue)
 			continue
 		}
 

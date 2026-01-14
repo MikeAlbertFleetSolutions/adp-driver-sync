@@ -35,6 +35,8 @@ type adp struct {
 	ClientId     string
 	ClientSecret string
 	BaseURL      string
+	CertFile     string
+	KeyFile      string
 }
 
 func (a *adp) validate() error {
@@ -46,6 +48,12 @@ func (a *adp) validate() error {
 	}
 	if len(a.BaseURL) == 0 {
 		return fmt.Errorf("ADP BaseURL is required")
+	}
+	if len(a.CertFile) == 0 {
+		return fmt.Errorf("ADP CertFile is required")
+	}
+	if len(a.KeyFile) == 0 {
+		return fmt.Errorf("ADP KeyFile is required")
 	}
 	return nil
 }

@@ -38,9 +38,9 @@ type Authentication struct {
 
 // Client is our type
 type Client struct {
-	clientId       string
-	clientSecret   string
-	endpoint       string
+	ClientID     string
+	ClientSecret   string
+	Endpoint       string
 	authentication Authentication
 	httpClient     *http.Client
 	ratelimiter    *rate.Limiter
@@ -61,9 +61,9 @@ func firstN(s string, n int) string {
 // NewClient creates a new mikealbert client
 func NewClient(clientId, clientSecret, endpoint string) (*Client, error) {
 	client := &Client{
-		clientId:     clientId,
-		clientSecret: clientSecret,
-		endpoint:     endpoint,
+		ClientID:     clientId,
+		ClientSecret: clientSecret,
+		Endpoint:     endpoint,
 		httpClient: &http.Client{
 			Timeout: time.Second * 60,
 		},
@@ -98,7 +98,7 @@ func (client *Client) makeRequest(method, url string, body io.Reader) ([]byte, e
 	if len(client.authentication.accessToken) > 0 {
 		// need to re-authenticate?
 		if !client.authentication.expires.After(time.Now().UTC().Add(5 * time.Minute)) {
-			err := client.authenticate(client.clientId, client.clientSecret)
+			err := client.authenticate(client.ClientID, client.ClientSecret)
 			if err != nil {
 				log.Printf("%+v", err)
 				return nil, err
@@ -162,10 +162,10 @@ func (client *Client) authenticate(clientId, clientSecret string) error {
 	client.authentication = Authentication{}
 
 	req := struct {
-		ClientId     string `json:"client_id"`
+		ClientID     string `json:"client_id"`
 		ClientSecret string `json:"client_secret"`
 	}{
-		ClientId:     clientId,
+		ClientID:     clientId,
 		ClientSecret: clientSecret,
 	}
 
@@ -175,7 +175,7 @@ func (client *Client) authenticate(clientId, clientSecret string) error {
 		return err
 	}
 
-	u, err := url.JoinPath(client.endpoint, "token")
+	u, err := url.JoinPath(client.Endpoint, "/token")
 	if err != nil {
 		log.Printf("%+v", err)
 		return err
@@ -220,7 +220,7 @@ func (client *Client) FindDrivers(employeeNumber string) ([]Driver, error) {
 		return nil, err
 	}
 
-	u, err := url.JoinPath(client.endpoint, "driver-management/driver/find")
+	u, err := url.JoinPath(client.Endpoint, "/driver-management/driver/find")
 	if err != nil {
 		log.Printf("%+v", err)
 		return nil, err
@@ -258,7 +258,7 @@ func (client *Client) UpdateDriver(driverId int, address1, address2, postCode st
 		return nil, err
 	}
 
-	u, err := url.JoinPath(client.endpoint, "driver-management/driver", strconv.Itoa(driverId))
+	u, err := url.JoinPath(client.Endpoint, "/driver-management/driver", strconv.Itoa(driverId))
 	if err != nil {
 		log.Printf("%+v", err)
 		return nil, err

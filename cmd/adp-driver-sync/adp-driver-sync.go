@@ -43,7 +43,7 @@ func main() {
 	}
 
 	// create adp client
-	ac, err := adp.NewClient(config.Adp.ClientId, config.Adp.ClientSecret, config.Adp.BaseURL)
+	ac, err := adp.NewClient(config.Adp.ClientId, config.Adp.ClientSecret, config.Adp.BaseURL, config.Adp.CertFile, config.Adp.KeyFile)
 	if err != nil {
 		log.Printf("%+v", err)
 		os.Exit(1)

@@ -38,7 +38,7 @@ type Authentication struct {
 
 // Client is our type
 type Client struct {
-	ClientID     string
+	ClientID       string
 	ClientSecret   string
 	Endpoint       string
 	authentication Authentication
@@ -264,7 +264,7 @@ func (client *Client) UpdateDriver(driverId int, address1, address2, postCode st
 		return nil, err
 	}
 
-	b, err := client.makeRequest("POST", u, strings.NewReader(string(ab)))
+	b, err := client.makeRequest("PATCH", u, strings.NewReader(string(ab)))
 	if err != nil {
 		log.Printf("%+v", err)
 		return nil, err

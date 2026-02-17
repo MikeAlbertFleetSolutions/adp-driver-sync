@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/MikeAlbertFleetSolutions/adp-driver-sync/adp"
 	"github.com/MikeAlbertFleetSolutions/adp-driver-sync/config"
@@ -56,27 +57,86 @@ func main() {
 		os.Exit(1)
 	}
 
-	// get employees to sync over
+	// get employees from ADP
 	drivers, err := ac.GetDriverHomeAddresses()
 	if err != nil {
 		log.Printf("%+v", err)
 		os.Exit(1)
 	}
 
-	// update drivers in mike albert
+	log.Printf("Found %d drivers from ADP", len(drivers))
+
+	// sync each driver to mike albert
+	updated := 0
+	unchanged := 0
+	notFound := 0
+	skipped := 0
+	errors := 0
+
 	for _, d := range drivers {
-		maDrivers, err := mac.FindDrivers(d.EmployeeNumber)
+		// Mike Albert stores employee numbers without leading zeros
+		employeeNumber := strings.TrimLeft(d.EmployeeNumber, "0")
+
+		// find the driver in mike albert by employee number
+		maDrivers, err := mac.FindDrivers(employeeNumber)
 		if err != nil {
-			log.Printf("EmployeeNumber %s: %+v", d.EmployeeNumber, err)
+			log.Printf("ERROR finding driver %s in Mike Albert: %+v", employeeNumber, err)
+			errors++
 			continue
 		}
 
+		if len(maDrivers) == 0 {
+			notFound++
+			continue
+		}
+
+		// update each matching driver in mike albert
 		for _, maDriver := range maDrivers {
-			_, err = mac.UpdateDriver(*maDriver.DriverId, d.Address1, d.Address2, d.ZIPCode)
-			if err != nil {
-				log.Printf("EmployeeNumber %s: %+v", d.EmployeeNumber, err)
+			// Compare current MA address with ADP address — only PATCH if different
+			newZip := d.ZIPCode
+			if len(newZip) > 5 {
+				newZip = newZip[:5]
+			}
+			currentZip := maDriver.Address.PostCode
+			if len(currentZip) > 5 {
+				currentZip = currentZip[:5]
+			}
+
+			if strings.EqualFold(strings.TrimSpace(maDriver.Address.Address1), strings.TrimSpace(d.Address1)) &&
+				strings.EqualFold(strings.TrimSpace(maDriver.Address.Address2), strings.TrimSpace(d.Address2)) &&
+				currentZip == newZip {
+				unchanged++
 				continue
 			}
+
+			log.Printf("  Updating DriverId %d (%s): '%s' -> '%s', '%s' -> '%s', '%s' -> '%s'",
+				*maDriver.DriverId, employeeNumber,
+				maDriver.Address.Address1, d.Address1,
+				maDriver.Address.Address2, d.Address2,
+				maDriver.Address.PostCode, d.ZIPCode)
+
+			_, err = mac.UpdateDriver(*maDriver.DriverId, d.Address1, d.Address2, d.ZIPCode)
+			if err != nil {
+				if strings.Contains(err.Error(), "multiple vehicles allocated") {
+					log.Printf("  WARN: DriverId %d has multiple vehicles - skipping address update", *maDriver.DriverId)
+					skipped++
+				} else {
+					log.Printf("  ERROR updating DriverId %d for EmployeeNumber %s: %+v", *maDriver.DriverId, employeeNumber, err)
+					errors++
+				}
+				continue
+			}
+
+			log.Printf("  SUCCESS: Updated DriverId %d", *maDriver.DriverId)
+			updated++
 		}
 	}
+
+	log.Printf("=== SYNC COMPLETE ===")
+	log.Printf("  Total ADP drivers:   %d", len(drivers))
+	log.Printf("  Updated:             %d", updated)
+	log.Printf("  Unchanged:           %d", unchanged)
+	log.Printf("  Not found in MA:     %d", notFound)
+	log.Printf("  Skipped (multi-veh): %d", skipped)
+	log.Printf("  Errors:              %d", errors)
 }

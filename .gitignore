@@ -1,3 +1,6 @@
 target/
 *.yaml
 *.log
+*.crt
+*.pem
+*.exe
